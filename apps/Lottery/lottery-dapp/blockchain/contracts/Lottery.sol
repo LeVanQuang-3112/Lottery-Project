@@ -1,45 +1,57 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.11;
-
+pragma solidity ^0.8.17;
 import "@chainlink/contracts/src/v0.8/VRFConsumerBase.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
 contract Lottery is VRFConsumerBase {
     address public owner;
     address payable[] public players;
-    uint public lotteryId;
-    mapping (uint => address payable) public lotteryHistory;
+    uint256 public lotteryId;
+    mapping(uint256 => address payable) public lotteryHistory;
 
     bytes32 internal keyHash; // identifies which Chainlink oracle to use
-    uint internal fee;        // fee to get random number
-    uint public randomResult;
+    uint256 internal fee; // fee to get random number
+    uint256 public randomResult;
 
     constructor()
         VRFConsumerBase(
-            0xb3dCcb4Cf7a26f6cf6B120Cf5A73875B7BBc655B, // VRF coordinator
-            0x01BE23585060835E02B77ef475b0Cc51aA1e0709  // LINK token address
-        ) {
-            keyHash = 0x2ed0feb3e7fd2022120aa84fab1945545a9f2ffc9076fd6156fa96eaff4c1311;
-            fee = 0.1 * 10 ** 18;    // 0.1 LINK
+            0x271682DEB8C4E0901D1a1550aD2e64D568E69909, // VRF coordinator
+            0x326C977E6efc84E512bB9C30f76E30c160eD06FB // LINK token address
+        )
+    {
+        keyHash = 0x8af398995b04c28e9951adb9721ef74c74f93e6a478f39e7e0777be13527e7ef;
+        fee = 0.1 * 10**18; // 0.1 LINK
 
-            owner = msg.sender;
-            lotteryId = 1;
-        }
+        owner = msg.sender;
+        lotteryId = 10;
+        // lotteryId = 4 * uint8(5);
+    }
 
     function getRandomNumber() public returns (bytes32 requestId) {
-        require(LINK.balanceOf(address(this)) >= fee, "Not enough LINK in contract");
+        require(
+            LINK.balanceOf(address(this)) >= fee,
+            "Not enough LINK in contract"
+        );
         return requestRandomness(keyHash, fee);
     }
 
-    function fulfillRandomness(bytes32 requestId, uint randomness) internal override {
+    function fulfillRandomness(bytes32 requestId, uint256 randomness)
+        internal
+        override
+    {
         randomResult = randomness;
     }
 
-    function getWinnerByLottery(uint lottery) public view returns (address payable) {
+    function getWinnerByLottery(uint256 lottery)
+        public
+        view
+        returns (address payable)
+    {
         return lotteryHistory[lottery];
     }
 
-    function getBalance() public view returns (uint) {
+    function getBalance() public view returns (uint256) {
         return address(this).balance;
     }
 
@@ -59,20 +71,23 @@ contract Lottery is VRFConsumerBase {
     }
 
     function payWinner() public {
-        require(randomResult > 0, "Must have a source of randomness before choosing winner");
-        uint index = randomResult % players.length;
+        require(
+            randomResult > 0,
+            "Must have a source of randomness before choosing winner"
+        );
+        uint256 index = randomResult % players.length;
         players[index].transfer(address(this).balance);
 
         lotteryHistory[lotteryId] = players[index];
         lotteryId++;
-        
         // reset the state of the contract
         players = new address payable[](0);
         randomResult = 0;
+        // emit Deposit(msg.sender, _id, msg.value);
     }
 
     modifier onlyowner() {
-      require(msg.sender == owner);
-      _;
+        require(msg.sender == owner);
+        _;
     }
 }
